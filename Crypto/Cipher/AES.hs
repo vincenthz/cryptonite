@@ -19,6 +19,7 @@ import Crypto.Cipher.AES.Primitive
 import Crypto.Internal.Imports
 
 import Data.ByteArray as BA
+import Data.Proxy
 
 -- | AES with 128 bit key
 newtype AES128 = AES128 AES
@@ -35,22 +36,22 @@ newtype AES256 = AES256 AES
 instance Cipher AES128 where
     cipherName    _ = "AES128"
     cipherKeySize _ = KeySizeFixed 16
-    cipherInit k    = AES128 <$> (initAES =<< validateKeySize (undefined :: AES128) k)
+    cipherInit k    = AES128 <$> (initAES =<< validateKeySize (Proxy :: Proxy AES128) k)
 
 instance Cipher AES192 where
     cipherName    _ = "AES192"
     cipherKeySize _ = KeySizeFixed 24
-    cipherInit k    = AES192 <$> (initAES =<< validateKeySize (undefined :: AES192) k)
+    cipherInit k    = AES192 <$> (initAES =<< validateKeySize (Proxy :: Proxy AES192) k)
 
 instance Cipher AES256 where
     cipherName    _ = "AES256"
     cipherKeySize _ = KeySizeFixed 32
-    cipherInit k    = AES256 <$> (initAES =<< validateKeySize (undefined :: AES256) k)
+    cipherInit k    = AES256 <$> (initAES =<< validateKeySize (Proxy :: Proxy AES256) k)
 
-validateKeySize :: (ByteArrayAccess key, Cipher cipher) => cipher -> key -> CryptoFailable key
+validateKeySize :: (ByteArrayAccess key, Cipher cipher) => Proxy cipher -> key -> CryptoFailable key
 validateKeySize c k = if validKeyLength
-                      then CryptoPassed k
-                      else CryptoFailed CryptoError_KeySizeInvalid
+                         then CryptoPassed k
+                         else CryptoFailed CryptoError_KeySizeInvalid
   where keyLength = BA.length k
         validKeyLength = case cipherKeySize c of
           KeySizeRange low high -> keyLength >= low && keyLength <= high
