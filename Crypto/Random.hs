@@ -25,6 +25,9 @@ module Crypto.Random
     , withDRG
     , withRandomBytes
     , DRG(..)
+    , PRG(..)
+    , prgNew
+    , prgFork
     -- * Random abstraction
     , MonadRandom(..)
     , MonadPseudoRandom

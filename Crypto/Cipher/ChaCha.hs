@@ -14,14 +14,20 @@ module Crypto.Cipher.ChaCha
     , State
     -- * Simple interface for DRG purpose
     , initializeSimple
+    , initializeSimpleErr
     , generateSimple
     , StateSimple
+    , toPortable
+    , fromPortable
     ) where
 
-import           Crypto.Internal.ByteArray (ByteArrayAccess, ByteArray, ScrubbedBytes)
+import           Crypto.Error.Types (CryptoFailable (..), CryptoError (..), throwCryptoError)
+import           Crypto.Internal.ByteArray (ByteArrayAccess, ByteArray, ScrubbedBytes, unsafeMapWords)
 import qualified Crypto.Internal.ByteArray as B
 import           Crypto.Internal.Compat
+import           Crypto.Internal.Endian
 import           Crypto.Internal.Imports
+import qualified Data.ByteString as BS
 import           Foreign.Ptr
 import           Foreign.C.Types
 
@@ -32,6 +38,21 @@ newtype State = State ScrubbedBytes
 -- | ChaCha context for DRG purpose (see Crypto.Random.ChaChaDRG)
 newtype StateSimple = StateSimple ScrubbedBytes -- just ChaCha's state
     deriving (NFData)
+
+-- | Convert a 'StateSimple' from its internal architecture-dependent
+-- representation into a little-endian 'BS.ByteString'.
+--
+-- Note: anyone that can read this string, can break the security of the RNG.
+-- Treat it with as much importance as you would a password.
+toPortable :: StateSimple -> BS.ByteString
+toPortable (StateSimple st) = unsafeMapWords toLE32 st
+
+-- | Convert a 'StateSimple' from a little-endian 'BS.ByteString' into its
+-- internal architecture-dependent representation.
+fromPortable :: BS.ByteString -> CryptoFailable StateSimple
+fromPortable bs
+    | BS.length bs /= 64 = CryptoFailed CryptoError_StateSizeInvalid
+    | otherwise          = CryptoPassed $ StateSimple $ unsafeMapWords fromLE32 bs
 
 -- | Initialize a new ChaCha context with the number of rounds,
 -- the key and the nonce associated.
@@ -59,9 +80,14 @@ initialize nbRounds key nonce
 initializeSimple :: ByteArrayAccess seed
                  => seed -- ^ a 40 bytes long seed
                  -> StateSimple
-initializeSimple seed
-    | sLen < 40 = error "ChaCha Random: seed length should be 40 bytes"
-    | otherwise = unsafeDoIO $ do
+initializeSimple = throwCryptoError . initializeSimpleErr
+
+initializeSimpleErr :: ByteArrayAccess seed
+                 => seed -- ^ a 40 bytes long seed
+                 -> CryptoFailable StateSimple
+initializeSimpleErr seed
+    | sLen < 40 = CryptoFailed CryptoError_SeedTooSmall
+    | otherwise = CryptoPassed $ unsafeDoIO $ do
         stPtr <- B.alloc 64 $ \stPtr ->
                     B.withByteArray seed $ \seedPtr ->
                         ccryptonite_chacha_init_core stPtr 32 seedPtr 8 (seedPtr `plusPtr` 32)

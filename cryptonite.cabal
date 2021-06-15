@@ -241,6 +241,7 @@ Library
                      Crypto.Internal.Compat
                      Crypto.Internal.CompatPrim
                      Crypto.Internal.DeepSeq
+                     Crypto.Internal.Endian
                      Crypto.Internal.Imports
                      Crypto.Internal.Nat
                      Crypto.Internal.Words
